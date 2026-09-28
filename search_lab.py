@@ -103,8 +103,13 @@ class Ei_Puzzle(SearchProblem):
 
     def get_successors(self, state):
         successors = []
-        r, c = next((i, j) for i, row in enumerate(state) for j, val in enumerate(row) if val == 0)
-        
+        r = 0
+        c = 0
+        for row_index in range(len(state)):
+            for col_index in range(len(state[row_index])):
+                if state[row_index][col_index] == 0:
+                    r = row_index
+                    c = col_index        
         directions = [(-1, 0, "Up"), (1, 0, "Down"), (0, -1, "Left"), (0, 1, "Right")]
         for dr, dc, name in directions:
             nr, nc = r + dr, c + dc
@@ -149,9 +154,9 @@ class Cannibals(SearchProblem):
             else: 
                 nm, nc, n_boat = m + dm, c + dc, 1
                 
-            if 0 <= nm_l <= 3 and 0 <= nc <= 3:
-                right_m, right_c = 3 - nm_l, 3 - nc
-                left_valid = (nm == 0 or nm_l >= nc)
+            if 0 <= nm <= 3 and 0 <= nc <= 3:
+                right_m, right_c = 3 - nm, 3 - nc
+                left_valid = (nm == 0 or nm >= nc)
                 right_valid = (right_m == 0 or right_m >= right_c)
                 
                 if left_valid and right_valid:
@@ -169,7 +174,6 @@ class Water_Jugs(SearchProblem):
         return self.start
 
     def is_goal(self, state):
-        # Goal is exactly 2 gallons in the 4-gallon jug
         return state[0] == 2
 
     def get_successors(self, state):
@@ -236,8 +240,7 @@ class Sliding_Tile(SearchProblem):
 
     def get_successors(self, state):
         successors = []
-        r, c = next((i, j) for i, row in enumerate(state) for j, val in enumerate(row) if val == 0)
-        
+        r, c = 0
         directions = [(-1, 0, "Up"), (1, 0, "Down"), (0, -1, "Left"), (0, 1, "Right")]
         for dr, dc, name in directions:
             nr, nc = r + dr, c + dc
@@ -272,24 +275,25 @@ class River(SearchProblem):
     def get_successors(self, state):
         successors = []
         bank, farmer_side = state
-        other_bank = frozenset(['F', 'W', 'G', 'C']) - bank
+        #fwgc, same as fgcw. same values mean same thing
+        obank = frozenset(['F', 'W', 'G', 'C']) - bank
         
         if farmer_side == 1: 
             travellers = [frozenset(['F'])] + [frozenset(['F', item]) for item in bank if item != 'F']
             for t in travellers:
-                new_start_bank = bank - t
-                new_other_bank = other_bank | t
+                nsbank = bank - t
+                obank = obank | t
                 
-                if self._is_valid(new_start_bank) and self._is_valid(new_other_bank):
-                    successors.append(((new_start_bank, 0), f"Cross with {list(t)}", 1))
+                if self._is_valid(nsbank) and self._is_valid(obank):
+                    successors.append(((nsbank, 0), f"Cross with {list(t)}", 1))
         else:
-            travellers = [frozenset(['F'])] + [frozenset(['F', item]) for item in other_bank if item != 'F']
+            travellers = [frozenset(['F'])] + [frozenset(['F', item]) for item in obank if item != 'F']
             for t in travellers:
-                new_start_bank = bank | t
-                new_other_bank = other_bank - t
+                nsbank = bank | t
+                obank = obank - t
                 
-                if self._is_valid(new_start_bank) and self._is_valid(new_other_bank):
-                    successors.append(((new_start_bank, 1), f"Return with {list(t)}", 1))
+                if self._is_valid(nsbank) and self._is_valid(obank):
+                    successors.append(((nsbank, 1), f"Return with {list(t)}", 1))
                     
         return successors
 
@@ -350,11 +354,13 @@ def bfs(problem, visualize_func, speed):
 
         if problem.is_goal(current):
             return reconstruct_path(came_from, current), nodes_expanded, max_frontier
+        
         for next_state, _, _ in problem.get_successors(current):
             if next_state not in came_from:
                 frontier.append(next_state)
                 came_from[next_state] = current
                 max_frontier = max(max_frontier, len(frontier))
+    
     return None, nodes_expanded, max_frontier
 
 def dfs(problem, visualize_func, speed):
@@ -374,11 +380,14 @@ def dfs(problem, visualize_func, speed):
 
         if problem.is_goal(current):
             return reconstruct_path(came_from, current), nodes_expanded, max_frontier
+        
         for next_state, _, _ in problem.get_successors(current):
+            
             if next_state not in came_from:
                 frontier.append(next_state)
                 came_from[next_state] = current
                 max_frontier = max(max_frontier, len(frontier))
+    
     return None, nodes_expanded, max_frontier
 
 def ucs(problem, visualize_func, speed):
@@ -410,6 +419,8 @@ def ucs(problem, visualize_func, speed):
             return reconstruct_path(came_from, current), nodes_expanded, max_frontier
             
         for next_state, _, step_cost in problem.get_successors(current):
+            nc = current_cost + step_cost
+            
             if next_state not in csf or nc < csf[next_state]:
                 csf[next_state] = nc 
                 heapq.heappush(frontier, (nc, next_state))
@@ -417,6 +428,7 @@ def ucs(problem, visualize_func, speed):
                 max_frontier = max(max_frontier, len(frontier))
                 
     return None, nodes_expanded, max_frontier
+
 def greedy(problem, visualize_func, speed):
     start = problem.get_start_state()
     frontier = []
@@ -444,20 +456,20 @@ def greedy(problem, visualize_func, speed):
             return reconstruct_path(came_from, current), nodes_expanded, max_frontier
         
         for next_state, _, _ in problem.get_successors(current):
-            # Greedy doesn't care about optimal cost, just if it has been visited
             if next_state not in explored and next_state not in came_from:
                 heapq.heappush(frontier, (problem.heuristic(next_state), next_state))
                 came_from[next_state] = current
                 max_frontier = max(max_frontier, len(frontier))
                 
     return None, nodes_expanded, max_frontier
+
 def astar(problem, visualize_func, speed):
     start = problem.get_start_state()
     frontier = []
     heapq.heappush(frontier, (problem.heuristic(start), 0, start))
     
     came_from = {start: None}
-    cost_so_far = {start: 0} # 
+    cost_so_far = {start: 0} 
     explored = set()
     nodes_expanded = 0
     max_frontier = 1
@@ -518,7 +530,7 @@ def visualize_grid(problem, explored, frontier, current, came_from):
             state = (x, y)
             if state in problem.obstacles:
                 pygame.draw.rect(screen, COLORS['obstacle'], rect)
-            elif state == problem.get_start_state:
+            elif state == problem.get_start_state():
                 pygame.draw.rect(screen, COLORS['state'], rect)
             elif state == problem.goal:
                 pygame.draw.rect(screen, COLORS['goal'], rect)
@@ -564,13 +576,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-#Challenge 1
-path, expanded, max_f = search_func(problem, visualize_grid, args.speed
-for state in path:
-            # Don't color over the start or goal squares
-    if state != problem.get_start_state() and state != problem.goal:
-        rect = pygame.Rect(state[0]*CELL_SIZE, state[1]*CELL_SIZE, CELL_SIZE, CELL_SIZE)
-        pygame.draw.rect(screen, COLORS['path'], rect)
-# 2 3 4 5 on paper
