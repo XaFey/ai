@@ -67,7 +67,6 @@ class Romania(SearchProblem):
             'Iasi': [('Vaslui', 92), ('Neamt', 87)],
             'Neamt': [('Iasi', 87)]
         }
-        # Straight-line distance heuristic to Bucharest
         self.h_values = {
             'Arad': 366, 'Bucharest': 0, 'Craiova': 160, 'Dobreta': 242,
             'Eforie': 161, 'Fagaras': 176, 'Giurgiu': 77, 'Hirsova': 151,
@@ -140,23 +139,23 @@ class Cannibals(SearchProblem):
 
     def get_successors(self, state):
         successors = []
-        m_l, c_l, boat = state
+        m, c, boat = state
         
         boat_moves = [(1,0), (2,0), (0,1), (0,2), (1,1)]
         
         for dm, dc in boat_moves:
             if boat == 1: 
-                nm_l, nc_l, n_boat = m_l - dm, c_l - dc, 0
+                nm, nc, n_boat = m - dm, c - dc, 0
             else: 
-                nm_l, nc_l, n_boat = m_l + dm, c_l + dc, 1
+                nm, nc, n_boat = m + dm, c + dc, 1
                 
-            if 0 <= nm_l <= 3 and 0 <= nc_l <= 3:
-                right_m, right_c = 3 - nm_l, 3 - nc_l
-                left_valid = (nm_l == 0 or nm_l >= nc_l)
+            if 0 <= nm_l <= 3 and 0 <= nc <= 3:
+                right_m, right_c = 3 - nm_l, 3 - nc
+                left_valid = (nm == 0 or nm_l >= nc)
                 right_valid = (right_m == 0 or right_m >= right_c)
                 
                 if left_valid and right_valid:
-                    successors.append(((nm_l, nc_l, n_boat), f"Move {dm}M, {dc}C", 1))
+                    successors.append(((nm, nc, n_boat), f"Move {dm}M, {dc}C", 1))
         return successors
 
     def heuristic(self, state):
@@ -177,20 +176,14 @@ class Water_Jugs(SearchProblem):
         j4, j3 = state
         successors = []
         
-        # 1. Fill Jug 4
         successors.append(((4, j3), "Fill Jug 4", 1))
-        # 2. Fill Jug 3
         successors.append(((j4, 3), "Fill Jug 3", 1))
-        # 3. Empty Jug 4
         successors.append(((0, j3), "Empty Jug 4", 1))
-        # 4. Empty Jug 3
         successors.append(((j4, 0), "Empty Jug 3", 1))
         
-        # 5. Pour Jug 4 into Jug 3
         pour = min(j4, 3 - j3)
         successors.append(((j4 - pour, j3 + pour), "Pour 4 into 3", 1))
         
-        # 6. Pour Jug 3 into Jug 4
         pour = min(j3, 4 - j4)
         successors.append(((j4 + pour, j3 - pour), "Pour 3 into 4", 1))
         
@@ -201,36 +194,33 @@ class Water_Jugs(SearchProblem):
 
 class Vacuum_World(SearchProblem):
     def __init__(self):
-        # Robot starts in 'A', both rooms are dirty (True)
         self.start = ('A', True, True)
 
     def get_start_state(self):
         return self.start
 
     def is_goal(self, state):
-        _, a_dirty, b_dirty = state
-        return not a_dirty and not b_dirty
+        _, a_d, b_d = state
+        return not a_d and not b_d
 
     def get_successors(self, state):
-        pos, a_dirty, b_dirty = state
+        pos, a_d, b_d = state
         successors = []
         
-        # Action: Suck dirt if current room is dirty
-        if pos == 'A' and a_dirty:
-            successors.append((('A', False, b_dirty), "Suck A", 1))
-        elif pos == 'B' and b_dirty:
-            successors.append((('B', a_dirty, False), "Suck B", 1))
+        if pos == 'A' and a_d:
+            successors.append((('A', False, b_d), "Suck A", 1))
+        elif pos == 'B' and b_d:
+            successors.append((('B', a_d, False), "Suck B", 1))
             
         # Action: Move Left/Right
         if pos == 'A':
-            successors.append((('B', a_dirty, b_dirty), "Move to B", 1))
+            successors.append((('B', a_d, b_d), "Move to B", 1))
         else:
-            successors.append((('A', a_dirty, b_dirty), "Move to A", 1))
+            successors.append((('A', a_d, b_d), "Move to A", 1))
             
         return successors
 
     def heuristic(self, state):
-        # Count remaining dirty rooms
         return sum([state[1], state[2]])
 
 class Sliding_Tile(SearchProblem):
@@ -251,9 +241,7 @@ class Sliding_Tile(SearchProblem):
         directions = [(-1, 0, "Up"), (1, 0, "Down"), (0, -1, "Left"), (0, 1, "Right")]
         for dr, dc, name in directions:
             nr, nc = r + dr, c + dc
-            # Notice the boundary check is now 4 instead of 3
             if 0 <= nr < 4 and 0 <= nc < 4:
-                # Create new board configuration via deep copy and swap
                 new_board = [list(row) for row in state]
                 new_board[r][c], new_board[nr][nc] = new_board[nr][nc], new_board[r][c]
                 new_state = tuple(tuple(row) for row in new_board)
@@ -261,14 +249,11 @@ class Sliding_Tile(SearchProblem):
         return successors
 
     def heuristic(self, state):
-        # Manhattan Distance Heuristic
         dist = 0
-        # Loops check 4 rows and 4 columns
         for r in range(4):
             for c in range(4):
                 val = state[r][c]
                 if val != 0:
-                    # Find where val belongs in goal
                     gr, gc = next((i, j) for i, row in enumerate(self.goal) for j, v in enumerate(row) if v == val)
                     dist += abs(r - gr) + abs(c - gc)
         return dist
@@ -397,8 +382,8 @@ def dfs(problem, visualize_func, speed):
     return None, nodes_expanded, max_frontier
 
 def ucs(problem, visualize_func, speed):
-    def ucs(problem, visualize_func, speed):
-        start = problem.get_start_state()
+
+    start = problem.get_start_state()
     frontier = []
     heapq.heappush(frontier, (0, start))
     came_from = {start: None}
@@ -469,11 +454,10 @@ def greedy(problem, visualize_func, speed):
 def astar(problem, visualize_func, speed):
     start = problem.get_start_state()
     frontier = []
-    # heapq tuple: (f_cost, g_cost, state)
     heapq.heappush(frontier, (problem.heuristic(start), 0, start))
     
     came_from = {start: None}
-    cost_so_far = {start: 0} # Tracks the actual g_cost
+    cost_so_far = {start: 0} # 
     explored = set()
     nodes_expanded = 0
     max_frontier = 1
@@ -497,11 +481,9 @@ def astar(problem, visualize_func, speed):
         for next_state, _, step_cost in problem.get_successors(current):
             new_g = current_g + step_cost
             
-            # If we found an unvisited state, OR a cheaper route to an existing state
             if next_state not in cost_so_far or new_g < cost_so_far[next_state]:
                 cost_so_far[next_state] = new_g
                 
-                # f = g (actual past cost) + h (estimated future cost)
                 f_value = new_g + problem.heuristic(next_state)
                 
                 heapq.heappush(frontier, (f_value, new_g, next_state))
